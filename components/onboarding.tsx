@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Loader as Loader2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { ChoiceGroup, Field, SelectInput, TextInput } from '@/components/ui/field'
 import { ProgressBar } from '@/components/ui/progress-bar'
