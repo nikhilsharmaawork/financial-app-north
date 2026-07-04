@@ -1,6 +1,6 @@
 'use client'
 
-import { Loader2 } from 'lucide-react'
+import { Loader as Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { Field, TextInput } from '@/components/ui/field'
 import { Sheet } from '@/components/ui/sheet'

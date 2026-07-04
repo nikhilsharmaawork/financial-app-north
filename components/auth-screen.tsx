@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { ArrowLeft, Mail, Lock, Eye, EyeOff, Loader as Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
