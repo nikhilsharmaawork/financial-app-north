@@ -1,5 +1,6 @@
 'use client'
 
+import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { GoalIcon } from '@/components/event-icon'
 import { Field, TextInput } from '@/components/ui/field'
@@ -27,13 +28,15 @@ export function AddGoalSheet({
   const [target, setTarget] = useState('')
   const [saved, setSaved] = useState('')
   const [choice, setChoice] = useState(0)
+  const [loading, setLoading] = useState(false)
 
   const valid = name.trim().length > 0 && Number(target) > 0
 
-  function submit() {
-    if (!valid) return
+  async function submit() {
+    if (!valid || loading) return
+    setLoading(true)
     const c = iconChoices[choice]
-    addGoal({
+    await addGoal({
       name: name.trim(),
       target: Number(target),
       saved: Number(saved) || 0,
@@ -44,6 +47,7 @@ export function AddGoalSheet({
     setTarget('')
     setSaved('')
     setChoice(0)
+    setLoading(false)
     onClose()
   }
 
@@ -101,15 +105,15 @@ export function AddGoalSheet({
         </div>
         <button
           onClick={submit}
-          disabled={!valid}
+          disabled={!valid || loading}
           className={cn(
             'mt-2 rounded-2xl py-4 text-base font-semibold transition-all',
-            valid
+            valid && !loading
               ? 'bg-primary text-primary-foreground active:scale-[0.98]'
               : 'cursor-not-allowed bg-secondary text-muted-foreground',
           )}
         >
-          Create goal
+          {loading ? <Loader2 className="mx-auto size-5 animate-spin" /> : 'Create goal'}
         </button>
       </div>
     </Sheet>

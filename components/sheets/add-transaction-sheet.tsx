@@ -1,5 +1,6 @@
 'use client'
 
+import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { Field, SelectInput, TextInput } from '@/components/ui/field'
 import { Sheet } from '@/components/ui/sheet'
@@ -31,6 +32,7 @@ export function AddTransactionSheet({
   const [amount, setAmount] = useState('')
   const [accountId, setAccountId] = useState(state.accounts[0]?.id ?? '')
   const [category, setCategory] = useState<TxCategory>('Food')
+  const [loading, setLoading] = useState(false)
 
   const valid = name.trim().length > 0 && Number(amount) > 0 && accountId
 
@@ -41,10 +43,11 @@ export function AddTransactionSheet({
     setCategory('Food')
   }
 
-  function submit() {
-    if (!valid) return
+  async function submit() {
+    if (!valid || loading) return
+    setLoading(true)
     const value = Number(amount)
-    addTransaction({
+    await addTransaction({
       name: name.trim(),
       amount: type === 'expense' ? -value : value,
       date: new Date().toISOString(),
@@ -52,6 +55,7 @@ export function AddTransactionSheet({
       category: type === 'income' ? 'Income' : category,
     })
     reset()
+    setLoading(false)
     onClose()
   }
 
@@ -129,15 +133,15 @@ export function AddTransactionSheet({
 
         <button
           onClick={submit}
-          disabled={!valid}
+          disabled={!valid || loading}
           className={cn(
             'mt-2 h-13 rounded-2xl py-4 text-base font-semibold transition-all',
-            valid
+            valid && !loading
               ? 'bg-primary text-primary-foreground active:scale-[0.98]'
               : 'cursor-not-allowed bg-secondary text-muted-foreground',
           )}
         >
-          Save transaction
+          {loading ? <Loader2 className="mx-auto size-5 animate-spin" /> : 'Save transaction'}
         </button>
       </div>
     </Sheet>

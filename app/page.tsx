@@ -1,10 +1,13 @@
 import { AppShell } from '@/components/app-shell'
+import { AuthProvider } from '@/lib/auth-context'
 import { StoreProvider } from '@/lib/store'
 
 export default function Page() {
   return (
-    <StoreProvider>
-      <AppShell />
-    </StoreProvider>
+    <AuthProvider>
+      <StoreProvider>
+        <AppShell />
+      </StoreProvider>
+    </AuthProvider>
   )
 }

@@ -1,5 +1,6 @@
 'use client'
 
+import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { Field, SelectInput, TextInput } from '@/components/ui/field'
 import { Sheet } from '@/components/ui/sheet'
@@ -28,13 +29,15 @@ export function AddEventSheet({
   const [type, setType] = useState<EventType>('bill')
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const valid = name.trim().length > 0 && Number(amount) > 0 && !!date
 
-  function submit() {
-    if (!valid) return
+  async function submit() {
+    if (!valid || loading) return
+    setLoading(true)
     const isInflow = type === 'salary'
-    addEvent({
+    await addEvent({
       name: name.trim(),
       type,
       amount: isInflow ? Number(amount) : -Number(amount),
@@ -45,6 +48,7 @@ export function AddEventSheet({
     setAmount('')
     setDate('')
     setType('bill')
+    setLoading(false)
     onClose()
   }
 
@@ -85,15 +89,15 @@ export function AddEventSheet({
         </Field>
         <button
           onClick={submit}
-          disabled={!valid}
+          disabled={!valid || loading}
           className={cn(
             'mt-2 rounded-2xl py-4 text-base font-semibold transition-all',
-            valid
+            valid && !loading
               ? 'bg-primary text-primary-foreground active:scale-[0.98]'
               : 'cursor-not-allowed bg-secondary text-muted-foreground',
           )}
         >
-          Add event
+          {loading ? <Loader2 className="mx-auto size-5 animate-spin" /> : 'Add event'}
         </button>
       </div>
     </Sheet>

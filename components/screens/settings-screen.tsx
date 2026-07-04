@@ -1,11 +1,11 @@
 'use client'
 
-import { ArrowLeft, Bell, Globe, RotateCcw, User } from 'lucide-react'
+import { ArrowLeft, Bell, Globe, LogOut, RotateCcw, User } from 'lucide-react'
 import { Field, SelectInput } from '@/components/ui/field'
 import { useStore } from '@/lib/store'
 import type { Country, Currency, Status } from '@/lib/types'
 
-export function SettingsScreen({ onBack }: { onBack: () => void }) {
+export function SettingsScreen({ onBack, onSignOut }: { onBack: () => void; onSignOut: () => void }) {
   const { state, updateProfile, resetApp } = useStore()
   const { profile } = state
 
@@ -93,19 +93,30 @@ export function SettingsScreen({ onBack }: { onBack: () => void }) {
       {/* Reset */}
       <section className="px-6 pt-6">
         <button
-          onClick={() => {
-            resetApp()
+          onClick={async () => {
+            await resetApp()
             onBack()
           }}
           className="flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/10 py-4 font-semibold text-destructive transition-colors hover:bg-destructive/20"
         >
           <RotateCcw className="size-5" />
-          Reset demo data
+          Reset all data
+        </button>
+      </section>
+
+      {/* Sign out */}
+      <section className="px-6 pt-4">
+        <button
+          onClick={onSignOut}
+          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-secondary py-4 font-semibold text-foreground transition-colors hover:bg-accent"
+        >
+          <LogOut className="size-5" />
+          Sign out
         </button>
       </section>
 
       <p className="px-6 pt-6 text-center text-xs text-muted-foreground">
-        North · Financial OS for newcomers · Demo build
+        North · Financial OS for newcomers
       </p>
     </div>
   )

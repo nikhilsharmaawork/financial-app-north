@@ -1,5 +1,6 @@
 'use client'
 
+import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { Field, TextInput } from '@/components/ui/field'
 import { Sheet } from '@/components/ui/sheet'
@@ -17,12 +18,14 @@ export function AddIncomeSheet({
   const [name, setName] = useState('')
   const [monthly, setMonthly] = useState('')
   const [payday, setPayday] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const valid = name.trim().length > 0 && Number(monthly) > 0 && !!payday
 
-  function submit() {
-    if (!valid) return
-    addIncome({
+  async function submit() {
+    if (!valid || loading) return
+    setLoading(true)
+    await addIncome({
       name: name.trim(),
       monthly: Number(monthly),
       nextPayday: new Date(payday).toISOString(),
@@ -30,6 +33,7 @@ export function AddIncomeSheet({
     setName('')
     setMonthly('')
     setPayday('')
+    setLoading(false)
     onClose()
   }
 
@@ -61,15 +65,15 @@ export function AddIncomeSheet({
         </Field>
         <button
           onClick={submit}
-          disabled={!valid}
+          disabled={!valid || loading}
           className={cn(
             'mt-2 rounded-2xl py-4 text-base font-semibold transition-all',
-            valid
+            valid && !loading
               ? 'bg-primary text-primary-foreground active:scale-[0.98]'
               : 'cursor-not-allowed bg-secondary text-muted-foreground',
           )}
         >
-          Add income source
+          {loading ? <Loader2 className="mx-auto size-5 animate-spin" /> : 'Add income source'}
         </button>
       </div>
     </Sheet>

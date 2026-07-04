@@ -1,5 +1,6 @@
 'use client'
 
+import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { Field, SelectInput, TextInput } from '@/components/ui/field'
 import { Sheet } from '@/components/ui/sheet'
@@ -18,15 +19,18 @@ export function AddAccountSheet({
   const [name, setName] = useState('')
   const [type, setType] = useState<AccountType>('checking')
   const [balance, setBalance] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const valid = name.trim().length > 0 && balance !== ''
 
-  function submit() {
-    if (!valid) return
-    addAccount({ name: name.trim(), type, balance: Number(balance) })
+  async function submit() {
+    if (!valid || loading) return
+    setLoading(true)
+    await addAccount({ name: name.trim(), type, balance: Number(balance) })
     setName('')
     setBalance('')
     setType('checking')
+    setLoading(false)
     onClose()
   }
 
@@ -55,33 +59,19 @@ export function AddAccountSheet({
             placeholder="0.00"
           />
         </Field>
-        <SubmitButton valid={valid} onClick={submit} label="Add account" />
+        <button
+          onClick={submit}
+          disabled={!valid || loading}
+          className={cn(
+            'mt-2 rounded-2xl py-4 text-base font-semibold transition-all',
+            valid && !loading
+              ? 'bg-primary text-primary-foreground active:scale-[0.98]'
+              : 'cursor-not-allowed bg-secondary text-muted-foreground',
+          )}
+        >
+          {loading ? <Loader2 className="mx-auto size-5 animate-spin" /> : 'Add account'}
+        </button>
       </div>
     </Sheet>
-  )
-}
-
-function SubmitButton({
-  valid,
-  onClick,
-  label,
-}: {
-  valid: boolean
-  onClick: () => void
-  label: string
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={!valid}
-      className={cn(
-        'mt-2 rounded-2xl py-4 text-base font-semibold transition-all',
-        valid
-          ? 'bg-primary text-primary-foreground active:scale-[0.98]'
-          : 'cursor-not-allowed bg-secondary text-muted-foreground',
-      )}
-    >
-      {label}
-    </button>
   )
 }

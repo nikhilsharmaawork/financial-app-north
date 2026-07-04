@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { ChoiceGroup, Field, SelectInput, TextInput } from '@/components/ui/field'
 import { ProgressBar } from '@/components/ui/progress-bar'
@@ -13,6 +13,7 @@ const TOTAL = 5
 export function Onboarding() {
   const { completeOnboarding } = useStore()
   const [step, setStep] = useState(0)
+  const [loading, setLoading] = useState(false)
 
   const [country, setCountry] = useState<Country>('Latvia')
   const [status, setStatus] = useState<Status | null>(null)
@@ -39,13 +40,14 @@ export function Onboarding() {
     }
   }, [step, country, status, incomeName, incomeAmount, payday, accountName, accountBalance])
 
-  function next() {
-    if (!canProceed) return
+  async function next() {
+    if (!canProceed || loading) return
     if (step < TOTAL - 1) {
       setStep((s) => s + 1)
       return
     }
-    completeOnboarding({
+    setLoading(true)
+    await completeOnboarding({
       profile: { country, status: status ?? 'Student' },
       income: {
         name: incomeName.trim(),
@@ -58,6 +60,7 @@ export function Onboarding() {
         balance: Number(accountBalance),
       },
     })
+    setLoading(false)
   }
 
   return (
@@ -199,15 +202,17 @@ export function Onboarding() {
       {/* Footer */}
       <button
         onClick={next}
-        disabled={!canProceed}
+        disabled={!canProceed || loading}
         className={cn(
           'mt-8 flex h-14 w-full items-center justify-center gap-2 rounded-2xl text-base font-semibold transition-all',
-          canProceed
+          canProceed && !loading
             ? 'bg-primary text-primary-foreground active:scale-[0.98]'
             : 'cursor-not-allowed bg-secondary text-muted-foreground',
         )}
       >
-        {step === TOTAL - 1 ? (
+        {loading ? (
+          <Loader2 className="size-5 animate-spin" />
+        ) : step === TOTAL - 1 ? (
           <>
             Finish setup
             <Check className="size-5" />
