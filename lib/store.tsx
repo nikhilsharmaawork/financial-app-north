@@ -20,6 +20,11 @@ import type {
   Transaction,
 } from './types'
 
+function formatStoreError(err: unknown, action: string): string {
+  console.error(`Error ${action}:`, err)
+  return err instanceof Error ? err.message : `Failed to ${action}`
+}
+
 interface StoreValue {
   state: AppState
   loading: boolean
@@ -157,8 +162,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         })),
       })
     } catch (err) {
-      console.error('Error fetching user data:', err)
-      setError(err instanceof Error ? err.message : 'Failed to load data')
+      setError(formatStoreError(err, 'fetching user data'))
     } finally {
       setLoading(false)
     }
@@ -239,8 +243,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           accounts: [{ ...account, id: accountData.id }],
         }))
       } catch (err) {
-        console.error('Error completing onboarding:', err)
-        setError(err instanceof Error ? err.message : 'Failed to complete onboarding')
+        setError(formatStoreError(err, 'completing onboarding'))
       }
     },
     [userId],
@@ -269,8 +272,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           accounts: [...prev.accounts, { ...account, id: data.id }],
         }))
       } catch (err) {
-        console.error('Error adding account:', err)
-        setError(err instanceof Error ? err.message : 'Failed to add account')
+        setError(formatStoreError(err, 'adding account'))
       }
     },
     [userId],
@@ -299,8 +301,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           income: [...prev.income, { ...income, id: data.id }],
         }))
       } catch (err) {
-        console.error('Error adding income:', err)
-        setError(err instanceof Error ? err.message : 'Failed to add income')
+        setError(formatStoreError(err, 'adding income'))
       }
     },
     [userId],
@@ -349,8 +350,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         })
       } catch (err) {
-        console.error('Error adding transaction:', err)
-        setError(err instanceof Error ? err.message : 'Failed to add transaction')
+        setError(formatStoreError(err, 'adding transaction'))
       }
     },
     [userId],
@@ -404,8 +404,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
         await fetchUserData(userId)
       } catch (err) {
-        console.error('Error editing transaction:', err)
-        setError(err instanceof Error ? err.message : 'Failed to edit transaction')
+        setError(formatStoreError(err, 'editing transaction'))
       }
     },
     [userId, state.transactions, fetchUserData],
@@ -436,8 +435,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           transactions: prev.transactions.filter((t) => t.id !== id),
         }))
       } catch (err) {
-        console.error('Error deleting transaction:', err)
-        setError(err instanceof Error ? err.message : 'Failed to delete transaction')
+        setError(formatStoreError(err, 'deleting transaction'))
       }
     },
     [userId, state.transactions],
@@ -468,8 +466,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           events: [...prev.events, { ...event, id: data.id }],
         }))
       } catch (err) {
-        console.error('Error adding event:', err)
-        setError(err instanceof Error ? err.message : 'Failed to add event')
+        setError(formatStoreError(err, 'adding event'))
       }
     },
     [userId],
@@ -500,8 +497,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           goals: [...prev.goals, { ...goal, id: data.id }],
         }))
       } catch (err) {
-        console.error('Error adding goal:', err)
-        setError(err instanceof Error ? err.message : 'Failed to add goal')
+        setError(formatStoreError(err, 'adding goal'))
       }
     },
     [userId],
@@ -525,8 +521,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           ),
         }))
       } catch (err) {
-        console.error('Error contributing to goal:', err)
-        setError(err instanceof Error ? err.message : 'Failed to contribute to goal')
+        setError(formatStoreError(err, 'contributing to goal'))
       }
     },
     [userId],
@@ -554,8 +549,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           budgets: [...prev.budgets, { ...budget, id: data.id }],
         }))
       } catch (err) {
-        console.error('Error adding budget:', err)
-        setError(err instanceof Error ? err.message : 'Failed to add budget')
+        setError(formatStoreError(err, 'adding budget'))
       }
     },
     [userId],
@@ -578,8 +572,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           budgets: prev.budgets.map((b) => (b.id === id ? { ...b, monthlyLimit } : b)),
         }))
       } catch (err) {
-        console.error('Error updating budget:', err)
-        setError(err instanceof Error ? err.message : 'Failed to update budget')
+        setError(formatStoreError(err, 'updating budget'))
       }
     },
     [userId],
@@ -598,8 +591,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           budgets: prev.budgets.filter((b) => b.id !== id),
         }))
       } catch (err) {
-        console.error('Error deleting budget:', err)
-        setError(err instanceof Error ? err.message : 'Failed to delete budget')
+        setError(formatStoreError(err, 'deleting budget'))
       }
     },
     [userId],
@@ -628,8 +620,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           profile: { ...prev.profile, ...profile },
         }))
       } catch (err) {
-        console.error('Error updating profile:', err)
-        setError(err instanceof Error ? err.message : 'Failed to update profile')
+        setError(formatStoreError(err, 'updating profile'))
       }
     },
     [userId],
@@ -651,8 +642,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       setState(defaultState)
     } catch (err) {
-      console.error('Error resetting app:', err)
-      setError(err instanceof Error ? err.message : 'Failed to reset app')
+      setError(formatStoreError(err, 'resetting app'))
     }
   }, [userId])
 
