@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase'
 import type {
   Account,
   AppState,
+  Budget,
   FinanceEvent,
   Goal,
   IncomeSource,
@@ -31,9 +32,14 @@ interface StoreValue {
   addAccount: (account: Omit<Account, 'id'>) => Promise<void>
   addIncome: (income: Omit<IncomeSource, 'id'>) => Promise<void>
   addTransaction: (tx: Omit<Transaction, 'id'>) => Promise<void>
+  editTransaction: (id: string, tx: Omit<Transaction, 'id'>) => Promise<void>
+  deleteTransaction: (id: string) => Promise<void>
   addEvent: (event: Omit<FinanceEvent, 'id'>) => Promise<void>
   addGoal: (goal: Omit<Goal, 'id'>) => Promise<void>
   contributeToGoal: (goalId: string, amount: number) => Promise<void>
+  addBudget: (budget: Omit<Budget, 'id'>) => Promise<void>
+  updateBudget: (id: string, monthlyLimit: number) => Promise<void>
+  deleteBudget: (id: string) => Promise<void>
   updateProfile: (profile: Partial<Profile>) => Promise<void>
   resetApp: () => Promise<void>
   refreshData: () => Promise<void>
@@ -56,6 +62,7 @@ const defaultState: AppState = {
   transactions: [],
   events: [],
   goals: [],
+  budgets: [],
 }
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
@@ -83,12 +90,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      const [accountsRes, incomeRes, transactionsRes, eventsRes, goalsRes] = await Promise.all([
+      const [accountsRes, incomeRes, transactionsRes, eventsRes, goalsRes, budgetsRes] = await Promise.all([
         supabase.from('accounts').select('*').eq('user_id', uid),
         supabase.from('income_sources').select('*').eq('user_id', uid),
         supabase.from('transactions').select('*').eq('user_id', uid).order('date', { ascending: false }),
         supabase.from('events').select('*').eq('user_id', uid),
         supabase.from('goals').select('*').eq('user_id', uid),
+        supabase.from('budgets').select('*').eq('user_id', uid),
       ])
 
       if (accountsRes.error) throw accountsRes.error
@@ -96,6 +104,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (transactionsRes.error) throw transactionsRes.error
       if (eventsRes.error) throw eventsRes.error
       if (goalsRes.error) throw goalsRes.error
+      if (budgetsRes.error) throw budgetsRes.error
 
       setState({
         onboarded: profileData.onboarded,
@@ -140,6 +149,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           saved: Number(g.saved),
           target: Number(g.target),
           color: g.color,
+        })),
+        budgets: budgetsRes.data.map((b) => ({
+          id: b.id,
+          category: b.category as Budget['category'],
+          monthlyLimit: Number(b.monthly_limit),
         })),
       })
     } catch (err) {
@@ -312,17 +326,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
         if (err) throw err
 
-        const account = state.accounts.find((a) => a.id === tx.accountId)
-        if (account) {
-          await supabase
-            .from('accounts')
-            .update({ balance: account.balance + tx.amount })
-            .eq('id', tx.accountId)
-        }
+        // Atomic update on the database side. This avoids the old bug where
+        // the app read the balance into memory, added to it, and wrote it
+        // back — which could lose an update if two things happened close
+        // together.
+        const { data: newBalance, error: balErr } = await supabase.rpc(
+          'increment_account_balance',
+          { p_account_id: tx.accountId, p_delta: tx.amount },
+        )
+        if (balErr) throw balErr
 
         setState((prev) => {
           const accounts = prev.accounts.map((a) =>
-            a.id === tx.accountId ? { ...a, balance: a.balance + tx.amount } : a,
+            a.id === tx.accountId
+              ? { ...a, balance: newBalance !== null ? Number(newBalance) : a.balance + tx.amount }
+              : a,
           )
           return {
             ...prev,
@@ -335,7 +353,94 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setError(err instanceof Error ? err.message : 'Failed to add transaction')
       }
     },
-    [userId, state.accounts],
+    [userId],
+  )
+
+  const editTransaction = useCallback<StoreValue['editTransaction']>(
+    async (id, tx) => {
+      if (!userId) return
+
+      try {
+        const old = state.transactions.find((t) => t.id === id)
+        if (!old) return
+
+        const { error: err } = await supabase
+          .from('transactions')
+          .update({
+            name: tx.name,
+            amount: tx.amount,
+            date: tx.date,
+            account_id: tx.accountId,
+            category: tx.category,
+          })
+          .eq('id', id)
+
+        if (err) throw err
+
+        // Reverse the old amount on the old account, then apply the new
+        // amount on the (possibly different) new account. Both done as
+        // atomic database operations.
+        if (old.accountId === tx.accountId) {
+          const delta = tx.amount - old.amount
+          if (delta !== 0) {
+            const { error: balErr } = await supabase.rpc('increment_account_balance', {
+              p_account_id: tx.accountId,
+              p_delta: delta,
+            })
+            if (balErr) throw balErr
+          }
+        } else {
+          const { error: revErr } = await supabase.rpc('increment_account_balance', {
+            p_account_id: old.accountId,
+            p_delta: -old.amount,
+          })
+          if (revErr) throw revErr
+          const { error: appErr } = await supabase.rpc('increment_account_balance', {
+            p_account_id: tx.accountId,
+            p_delta: tx.amount,
+          })
+          if (appErr) throw appErr
+        }
+
+        await fetchUserData(userId)
+      } catch (err) {
+        console.error('Error editing transaction:', err)
+        setError(err instanceof Error ? err.message : 'Failed to edit transaction')
+      }
+    },
+    [userId, state.transactions, fetchUserData],
+  )
+
+  const deleteTransaction = useCallback<StoreValue['deleteTransaction']>(
+    async (id) => {
+      if (!userId) return
+
+      try {
+        const old = state.transactions.find((t) => t.id === id)
+        if (!old) return
+
+        const { error: err } = await supabase.from('transactions').delete().eq('id', id)
+        if (err) throw err
+
+        const { error: balErr } = await supabase.rpc('increment_account_balance', {
+          p_account_id: old.accountId,
+          p_delta: -old.amount,
+        })
+        if (balErr) throw balErr
+
+        setState((prev) => ({
+          ...prev,
+          accounts: prev.accounts.map((a) =>
+            a.id === old.accountId ? { ...a, balance: a.balance - old.amount } : a,
+          ),
+          transactions: prev.transactions.filter((t) => t.id !== id),
+        }))
+      } catch (err) {
+        console.error('Error deleting transaction:', err)
+        setError(err instanceof Error ? err.message : 'Failed to delete transaction')
+      }
+    },
+    [userId, state.transactions],
   )
 
   const addEvent = useCallback<StoreValue['addEvent']>(
@@ -407,22 +512,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (!userId) return
 
       try {
-        const goal = state.goals.find((g) => g.id === goalId)
-        if (!goal) return
-
-        const newSaved = Math.min(goal.saved + amount, goal.target)
-
-        const { error: err } = await supabase
-          .from('goals')
-          .update({ saved: newSaved })
-          .eq('id', goalId)
-
+        const { data: newSaved, error: err } = await supabase.rpc('increment_goal_saved', {
+          p_goal_id: goalId,
+          p_delta: amount,
+        })
         if (err) throw err
 
         setState((prev) => ({
           ...prev,
           goals: prev.goals.map((g) =>
-            g.id === goalId ? { ...g, saved: newSaved } : g,
+            g.id === goalId ? { ...g, saved: newSaved !== null ? Number(newSaved) : g.saved } : g,
           ),
         }))
       } catch (err) {
@@ -430,7 +529,80 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setError(err instanceof Error ? err.message : 'Failed to contribute to goal')
       }
     },
-    [userId, state.goals],
+    [userId],
+  )
+
+  const addBudget = useCallback<StoreValue['addBudget']>(
+    async (budget) => {
+      if (!userId) return
+
+      try {
+        const { data, error: err } = await supabase
+          .from('budgets')
+          .insert({
+            user_id: userId,
+            category: budget.category,
+            monthly_limit: budget.monthlyLimit,
+          })
+          .select()
+          .single()
+
+        if (err) throw err
+
+        setState((prev) => ({
+          ...prev,
+          budgets: [...prev.budgets, { ...budget, id: data.id }],
+        }))
+      } catch (err) {
+        console.error('Error adding budget:', err)
+        setError(err instanceof Error ? err.message : 'Failed to add budget')
+      }
+    },
+    [userId],
+  )
+
+  const updateBudget = useCallback<StoreValue['updateBudget']>(
+    async (id, monthlyLimit) => {
+      if (!userId) return
+
+      try {
+        const { error: err } = await supabase
+          .from('budgets')
+          .update({ monthly_limit: monthlyLimit })
+          .eq('id', id)
+
+        if (err) throw err
+
+        setState((prev) => ({
+          ...prev,
+          budgets: prev.budgets.map((b) => (b.id === id ? { ...b, monthlyLimit } : b)),
+        }))
+      } catch (err) {
+        console.error('Error updating budget:', err)
+        setError(err instanceof Error ? err.message : 'Failed to update budget')
+      }
+    },
+    [userId],
+  )
+
+  const deleteBudget = useCallback<StoreValue['deleteBudget']>(
+    async (id) => {
+      if (!userId) return
+
+      try {
+        const { error: err } = await supabase.from('budgets').delete().eq('id', id)
+        if (err) throw err
+
+        setState((prev) => ({
+          ...prev,
+          budgets: prev.budgets.filter((b) => b.id !== id),
+        }))
+      } catch (err) {
+        console.error('Error deleting budget:', err)
+        setError(err instanceof Error ? err.message : 'Failed to delete budget')
+      }
+    },
+    [userId],
   )
 
   const updateProfile = useCallback<StoreValue['updateProfile']>(
@@ -474,6 +646,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         supabase.from('transactions').delete().eq('user_id', userId),
         supabase.from('events').delete().eq('user_id', userId),
         supabase.from('goals').delete().eq('user_id', userId),
+        supabase.from('budgets').delete().eq('user_id', userId),
       ])
 
       setState(defaultState)
@@ -498,9 +671,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       addAccount,
       addIncome,
       addTransaction,
+      editTransaction,
+      deleteTransaction,
       addEvent,
       addGoal,
       contributeToGoal,
+      addBudget,
+      updateBudget,
+      deleteBudget,
       updateProfile,
       resetApp,
       refreshData,
@@ -513,9 +691,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       addAccount,
       addIncome,
       addTransaction,
+      editTransaction,
+      deleteTransaction,
       addEvent,
       addGoal,
       contributeToGoal,
+      addBudget,
+      updateBudget,
+      deleteBudget,
       updateProfile,
       resetApp,
       refreshData,

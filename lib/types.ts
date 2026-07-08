@@ -62,6 +62,12 @@ export interface Goal {
   color: string
 }
 
+export interface Budget {
+  id: string
+  category: TxCategory
+  monthlyLimit: number
+}
+
 export type Currency = 'EUR' | 'USD' | 'CAD'
 
 export interface Profile {
@@ -79,4 +85,5 @@ export interface AppState {
   transactions: Transaction[]
   events: FinanceEvent[]
   goals: Goal[]
+  budgets: Budget[]
 }

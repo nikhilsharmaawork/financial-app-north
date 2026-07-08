@@ -40,7 +40,6 @@
 }
 
 :root {
-  color-scheme: dark;
   --radius: 1rem;
 
   /* North premium navy + gold theme */
@@ -91,6 +90,32 @@
   --success: #5cc08a;
   --warning: #e0b54a;
   --danger: #e06a5a;
+}
+
+.light {
+  color-scheme: light;
+  /* North premium cream + gold theme (light mode) */
+  --background: #f7f4ee;
+  --foreground: #1c2430;
+  --card: #ffffff;
+  --card-foreground: #1c2430;
+  --popover: #ffffff;
+  --popover-foreground: #1c2430;
+  --primary: #b8842a;
+  --primary-foreground: #ffffff;
+  --secondary: #eee8dc;
+  --secondary-foreground: #1c2430;
+  --muted: #f0ece2;
+  --muted-foreground: #6b7280;
+  --accent: #eee8dc;
+  --accent-foreground: #1c2430;
+  --destructive: #c14f3f;
+  --border: #e2dcce;
+  --input: #e2dcce;
+  --ring: #b8842a;
+  --success: #2f9163;
+  --warning: #b8842a;
+  --danger: #c14f3f;
 }
 
 @layer base {

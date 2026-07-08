@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils'
 
 type View = 'daily' | 'future'
 
-export function TimelineScreen() {
+export function TimelineScreen({ onOpenSettings }: { onOpenSettings?: () => void } = {}) {
   const { state } = useStore()
   const currency = state.profile.currency
   const [view, setView] = useState<View>('daily')
@@ -69,6 +69,7 @@ export function TimelineScreen() {
       <ScreenHeader
         subtitle="What's coming"
         title="Timeline"
+        onProfileClick={onOpenSettings}
         action={
           <button
             onClick={() => setAddOpen(true)}

@@ -56,11 +56,17 @@ export function AppShell() {
               <HomeScreen
                 onAddExpense={() => setAddTxOpen(true)}
                 onSeeTimeline={() => setTab('timeline')}
+                onOpenSettings={() => setShowSettings(true)}
               />
             )}
-            {tab === 'money' && <MoneyScreen onAddTransaction={() => setAddTxOpen(true)} />}
-            {tab === 'timeline' && <TimelineScreen />}
-            {tab === 'goals' && <GoalsScreen />}
+            {tab === 'money' && (
+              <MoneyScreen
+                onAddTransaction={() => setAddTxOpen(true)}
+                onOpenSettings={() => setShowSettings(true)}
+              />
+            )}
+            {tab === 'timeline' && <TimelineScreen onOpenSettings={() => setShowSettings(true)} />}
+            {tab === 'goals' && <GoalsScreen onOpenSettings={() => setShowSettings(true)} />}
             {tab === 'ai' && <AiScreen onOpenSettings={() => setShowSettings(true)} />}
           </>
         )}

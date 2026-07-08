@@ -1,11 +1,11 @@
 'use client'
 
-import { Loader as Loader2 } from 'lucide-react'
-import { useState } from 'react'
+import { Loader as Loader2, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Field, SelectInput, TextInput } from '@/components/ui/field'
 import { Sheet } from '@/components/ui/sheet'
 import { useStore } from '@/lib/store'
-import type { TxCategory } from '@/lib/types'
+import type { Transaction, TxCategory } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 const categories: TxCategory[] = [
@@ -22,39 +22,73 @@ const categories: TxCategory[] = [
 export function AddTransactionSheet({
   open,
   onClose,
+  transaction,
 }: {
   open: boolean
   onClose: () => void
+  /** Pass an existing transaction to edit it instead of creating a new one. */
+  transaction?: Transaction | null
 }) {
-  const { state, addTransaction } = useStore()
+  const { state, addTransaction, editTransaction, deleteTransaction } = useStore()
+  const isEdit = !!transaction
+
   const [type, setType] = useState<'expense' | 'income'>('expense')
   const [name, setName] = useState('')
   const [amount, setAmount] = useState('')
   const [accountId, setAccountId] = useState(state.accounts[0]?.id ?? '')
   const [category, setCategory] = useState<TxCategory>('Food')
   const [loading, setLoading] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  // Load values whenever the sheet opens (for edit) or resets (for add)
+  useEffect(() => {
+    if (!open) return
+    setConfirmDelete(false)
+    if (transaction) {
+      setType(transaction.amount >= 0 ? 'income' : 'expense')
+      setName(transaction.name)
+      setAmount(String(Math.abs(transaction.amount)))
+      setAccountId(transaction.accountId)
+      setCategory(transaction.category)
+    } else {
+      setName('')
+      setAmount('')
+      setType('expense')
+      setCategory('Food')
+      setAccountId(state.accounts[0]?.id ?? '')
+    }
+  }, [open, transaction, state.accounts])
 
   const valid = name.trim().length > 0 && Number(amount) > 0 && accountId
-
-  function reset() {
-    setName('')
-    setAmount('')
-    setType('expense')
-    setCategory('Food')
-  }
 
   async function submit() {
     if (!valid || loading) return
     setLoading(true)
     const value = Number(amount)
-    await addTransaction({
+    const payload = {
       name: name.trim(),
       amount: type === 'expense' ? -value : value,
-      date: new Date().toISOString(),
+      date: transaction?.date ?? new Date().toISOString(),
       accountId,
-      category: type === 'income' ? 'Income' : category,
-    })
-    reset()
+      category: type === 'income' ? ('Income' as TxCategory) : category,
+    }
+    if (isEdit && transaction) {
+      await editTransaction(transaction.id, payload)
+    } else {
+      await addTransaction(payload)
+    }
+    setLoading(false)
+    onClose()
+  }
+
+  async function handleDelete() {
+    if (!transaction) return
+    if (!confirmDelete) {
+      setConfirmDelete(true)
+      return
+    }
+    setLoading(true)
+    await deleteTransaction(transaction.id)
     setLoading(false)
     onClose()
   }
@@ -63,8 +97,8 @@ export function AddTransactionSheet({
     <Sheet
       open={open}
       onClose={onClose}
-      title="Add transaction"
-      description="Record money going in or out."
+      title={isEdit ? 'Edit transaction' : 'Add transaction'}
+      description={isEdit ? 'Update the details below.' : 'Record money going in or out.'}
     >
       <div className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-2 rounded-2xl bg-secondary p-1">
@@ -141,8 +175,30 @@ export function AddTransactionSheet({
               : 'cursor-not-allowed bg-secondary text-muted-foreground',
           )}
         >
-          {loading ? <Loader2 className="mx-auto size-5 animate-spin" /> : 'Save transaction'}
+          {loading && !confirmDelete ? (
+            <Loader2 className="mx-auto size-5 animate-spin" />
+          ) : isEdit ? (
+            'Save changes'
+          ) : (
+            'Save transaction'
+          )}
         </button>
+
+        {isEdit && (
+          <button
+            onClick={handleDelete}
+            disabled={loading}
+            className={cn(
+              'flex h-13 items-center justify-center gap-2 rounded-2xl py-4 text-base font-semibold transition-all',
+              confirmDelete
+                ? 'bg-destructive text-white'
+                : 'border border-destructive/40 bg-destructive/10 text-destructive',
+            )}
+          >
+            <Trash2 className="size-5" />
+            {confirmDelete ? 'Tap again to confirm delete' : 'Delete transaction'}
+          </button>
+        )}
       </div>
     </Sheet>
   )

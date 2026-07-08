@@ -130,6 +130,68 @@ CREATE POLICY insert_own_notifications ON notifications FOR INSERT TO authentica
 CREATE POLICY update_own_notifications ON notifications FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 CREATE POLICY delete_own_notifications ON notifications FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
+-- Budgets table (monthly limit per category)
+CREATE TABLE IF NOT EXISTS budgets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
+  category text NOT NULL,
+  monthly_limit numeric NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(user_id, category)
+);
+
+ALTER TABLE budgets ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY select_own_budgets ON budgets FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY insert_own_budgets ON budgets FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY update_own_budgets ON budgets FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY delete_own_budgets ON budgets FOR DELETE TO authenticated USING (auth.uid() = user_id);
+
+-- =====================================================
+-- Atomic balance/goal update functions.
+-- These fix a race-condition bug where the app used to read
+-- a balance into memory, add to it, and write it back — which
+-- could overwrite another update that happened in between.
+-- These functions update the number directly inside the database,
+-- so it is always correct even if two changes happen at once.
+-- =====================================================
+
+CREATE OR REPLACE FUNCTION increment_account_balance(p_account_id uuid, p_delta numeric)
+RETURNS numeric
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  new_balance numeric;
+BEGIN
+  UPDATE accounts
+  SET balance = balance + p_delta
+  WHERE id = p_account_id AND user_id = auth.uid()
+  RETURNING balance INTO new_balance;
+
+  RETURN new_balance;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION increment_goal_saved(p_goal_id uuid, p_delta numeric)
+RETURNS numeric
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  new_saved numeric;
+BEGIN
+  UPDATE goals
+  SET saved = GREATEST(0, LEAST(target, saved + p_delta))
+  WHERE id = p_goal_id AND user_id = auth.uid()
+  RETURNING saved INTO new_saved;
+
+  RETURN new_saved;
+END;
+$$;
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON accounts(user_id);
 CREATE INDEX IF NOT EXISTS idx_income_sources_user_id ON income_sources(user_id);
@@ -139,6 +201,7 @@ CREATE INDEX IF NOT EXISTS idx_transactions_account_id ON transactions(account_i
 CREATE INDEX IF NOT EXISTS idx_events_user_id ON events(user_id);
 CREATE INDEX IF NOT EXISTS idx_events_date ON events(date);
 CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
+CREATE INDEX IF NOT EXISTS idx_budgets_user_id ON budgets(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
 
 -- Updated_at trigger

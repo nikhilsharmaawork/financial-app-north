@@ -9,7 +9,7 @@ import { ProgressBar } from '@/components/ui/progress-bar'
 import { formatMoney } from '@/lib/finance'
 import { useStore } from '@/lib/store'
 
-export function GoalsScreen() {
+export function GoalsScreen({ onOpenSettings }: { onOpenSettings?: () => void } = {}) {
   const { state, contributeToGoal } = useStore()
   const currency = state.profile.currency
   const [addOpen, setAddOpen] = useState(false)
@@ -22,6 +22,7 @@ export function GoalsScreen() {
       <ScreenHeader
         subtitle="Saving toward"
         title="Goals"
+        onProfileClick={onOpenSettings}
         action={
           <button
             onClick={() => setAddOpen(true)}

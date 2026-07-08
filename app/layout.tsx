@@ -1,6 +1,7 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Fraunces, Geist } from 'next/font/google'
+import { ThemeProvider } from '@/lib/theme-context'
 import './globals.css'
 
 const geist = Geist({
@@ -21,7 +22,6 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  colorScheme: 'dark',
   themeColor: '#12181F',
   width: 'device-width',
   initialScale: 1,
@@ -35,10 +35,16 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`dark ${geist.variable} ${fraunces.variable}`}>
+    <html
+      lang="en"
+      className={`dark ${geist.variable} ${fraunces.variable}`}
+      suppressHydrationWarning
+    >
       <body className="bg-background font-sans antialiased">
-        {children}
-        {process.env.NODE_ENV === 'production' && <Analytics />}
+        <ThemeProvider>
+          {children}
+          {process.env.NODE_ENV === 'production' && <Analytics />}
+        </ThemeProvider>
       </body>
     </html>
   )

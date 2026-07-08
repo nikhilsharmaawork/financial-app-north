@@ -19,9 +19,11 @@ import { cn } from '@/lib/utils'
 export function HomeScreen({
   onAddExpense,
   onSeeTimeline,
+  onOpenSettings,
 }: {
   onAddExpense: () => void
   onSeeTimeline: () => void
+  onOpenSettings?: () => void
 }) {
   const { state } = useStore()
   const currency = state.profile.currency
@@ -36,11 +38,24 @@ export function HomeScreen({
     <div className="animate-screen-in pb-4">
       {/* Greeting */}
       <header className="flex items-center justify-between px-6 pb-2 pt-8">
-        <div>
-          <p className="text-sm text-muted-foreground">Welcome back</p>
-          <h1 className="font-serif text-2xl text-foreground">
-            {state.profile.name}
-          </h1>
+        <div className="flex items-center gap-3">
+          {onOpenSettings && (
+            <button
+              onClick={onOpenSettings}
+              aria-label="Open profile settings"
+              className="grid size-11 shrink-0 place-items-center rounded-full bg-primary/15 text-primary transition-colors hover:bg-primary/25"
+            >
+              <span className="font-serif text-lg">
+                {state.profile.name.charAt(0).toUpperCase() || '?'}
+              </span>
+            </button>
+          )}
+          <div>
+            <p className="text-sm text-muted-foreground">Welcome back</p>
+            <h1 className="font-serif text-2xl text-foreground">
+              {state.profile.name}
+            </h1>
+          </div>
         </div>
         <button
           aria-label="Notifications"

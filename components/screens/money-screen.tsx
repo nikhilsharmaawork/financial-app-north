@@ -10,13 +10,24 @@ import {
   Plus,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ScreenHeader } from '@/components/screen-header'
 import { AddAccountSheet } from '@/components/sheets/add-account-sheet'
+import { AddBudgetSheet } from '@/components/sheets/add-budget-sheet'
 import { AddIncomeSheet } from '@/components/sheets/add-income-sheet'
-import { formatDate, formatMoney, monthlyIncome, totalBalance } from '@/lib/finance'
+import { AddTransactionSheet } from '@/components/sheets/add-transaction-sheet'
+import { BarChart } from '@/components/ui/bar-chart'
+import { ProgressBar } from '@/components/ui/progress-bar'
+import {
+  formatDate,
+  formatMoney,
+  monthlyIncome,
+  monthlySpendHistory,
+  spentByCategoryThisMonth,
+  totalBalance,
+} from '@/lib/finance'
 import { useStore } from '@/lib/store'
-import type { AccountType } from '@/lib/types'
+import type { AccountType, Transaction } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 const accountIcons: Record<AccountType, LucideIcon> = {
@@ -25,15 +36,29 @@ const accountIcons: Record<AccountType, LucideIcon> = {
   cash: Coins,
 }
 
-export function MoneyScreen({ onAddTransaction }: { onAddTransaction: () => void }) {
+export function MoneyScreen({
+  onAddTransaction,
+  onOpenSettings,
+}: {
+  onAddTransaction: () => void
+  onOpenSettings?: () => void
+}) {
   const { state } = useStore()
   const currency = state.profile.currency
   const [accountOpen, setAccountOpen] = useState(false)
   const [incomeOpen, setIncomeOpen] = useState(false)
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null)
+  const [editTxOpen, setEditTxOpen] = useState(false)
+  const [budgetOpen, setBudgetOpen] = useState(false)
+  const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null)
+
+  const spentByCategory = useMemo(() => spentByCategoryThisMonth(state), [state])
+  const history = useMemo(() => monthlySpendHistory(state, 6), [state])
+  const editingBudget = state.budgets.find((b) => b.id === editingBudgetId) ?? null
 
   return (
     <div className="animate-screen-in">
-      <ScreenHeader subtitle="Overview" title="Money" />
+      <ScreenHeader subtitle="Overview" title="Money" onProfileClick={onOpenSettings} />
 
       {/* Accounts */}
       <section className="px-6">
@@ -104,6 +129,58 @@ export function MoneyScreen({ onAddTransaction }: { onAddTransaction: () => void
         </div>
       </section>
 
+      {/* Budgets */}
+      <section className="px-6 pt-8">
+        <SectionTitle
+          title="Budgets"
+          onAdd={() => {
+            setEditingBudgetId(null)
+            setBudgetOpen(true)
+          }}
+          addLabel="Add budget"
+        />
+        {state.budgets.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+            No budgets yet. Add one to track a monthly limit.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {state.budgets.map((b) => {
+              const spent = spentByCategory[b.category] ?? 0
+              const pct = b.monthlyLimit > 0 ? (spent / b.monthlyLimit) * 100 : 0
+              const over = spent > b.monthlyLimit
+              return (
+                <button
+                  key={b.id}
+                  onClick={() => {
+                    setEditingBudgetId(b.id)
+                    setBudgetOpen(true)
+                  }}
+                  className="w-full rounded-2xl border border-border bg-card p-4 text-left"
+                >
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="font-medium text-foreground">{b.category}</span>
+                    <span className={cn('text-sm font-semibold', over ? 'text-danger' : 'text-muted-foreground')}>
+                      {formatMoney(spent, currency, { decimals: false })} / {formatMoney(b.monthlyLimit, currency, { decimals: false })}
+                    </span>
+                  </div>
+                  <ProgressBar value={pct} color={over ? 'var(--danger)' : undefined} />
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Reports */}
+      <section className="px-6 pt-8">
+        <SectionTitle title="Spending report" onAdd={() => {}} addLabel="" hideAdd />
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <p className="text-sm text-muted-foreground">Last 6 months, expenses only</p>
+          <BarChart data={history} />
+        </div>
+      </section>
+
       {/* Transactions */}
       <section className="px-6 pb-4 pt-8">
         <SectionTitle
@@ -111,42 +188,48 @@ export function MoneyScreen({ onAddTransaction }: { onAddTransaction: () => void
           onAdd={onAddTransaction}
           addLabel="Add transaction"
         />
+        <p className="mb-2 text-xs text-muted-foreground">Tap a transaction to edit or delete it.</p>
         <ul className="flex flex-col gap-2">
           {state.transactions.map((t) => {
             const account = state.accounts.find((a) => a.id === t.accountId)
             const inflow = t.amount > 0
             return (
-              <li
-                key={t.id}
-                className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3.5"
-              >
-                <div
-                  className={cn(
-                    'grid size-10 shrink-0 place-items-center rounded-full',
-                    inflow ? 'bg-success/15 text-success' : 'bg-secondary text-muted-foreground',
-                  )}
+              <li key={t.id}>
+                <button
+                  onClick={() => {
+                    setEditingTx(t)
+                    setEditTxOpen(true)
+                  }}
+                  className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3.5 text-left transition-colors active:bg-secondary"
                 >
-                  {inflow ? (
-                    <ArrowDownLeft className="size-4" />
-                  ) : (
-                    <ArrowUpRight className="size-4" />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium text-foreground">{t.name}</p>
-                  <p className="truncate text-sm text-muted-foreground">
-                    {formatDate(t.date)} · {t.category}
-                    {account ? ` · ${account.name}` : ''}
+                  <div
+                    className={cn(
+                      'grid size-10 shrink-0 place-items-center rounded-full',
+                      inflow ? 'bg-success/15 text-success' : 'bg-secondary text-muted-foreground',
+                    )}
+                  >
+                    {inflow ? (
+                      <ArrowDownLeft className="size-4" />
+                    ) : (
+                      <ArrowUpRight className="size-4" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-foreground">{t.name}</p>
+                    <p className="truncate text-sm text-muted-foreground">
+                      {formatDate(t.date)} · {t.category}
+                      {account ? ` · ${account.name}` : ''}
+                    </p>
+                  </div>
+                  <p
+                    className={cn(
+                      'shrink-0 font-medium',
+                      inflow ? 'text-success' : 'text-foreground',
+                    )}
+                  >
+                    {formatMoney(t.amount, currency, { sign: true })}
                   </p>
-                </div>
-                <p
-                  className={cn(
-                    'shrink-0 font-medium',
-                    inflow ? 'text-success' : 'text-foreground',
-                  )}
-                >
-                  {formatMoney(t.amount, currency, { sign: true })}
-                </p>
+                </button>
               </li>
             )
           })}
@@ -155,6 +238,22 @@ export function MoneyScreen({ onAddTransaction }: { onAddTransaction: () => void
 
       <AddAccountSheet open={accountOpen} onClose={() => setAccountOpen(false)} />
       <AddIncomeSheet open={incomeOpen} onClose={() => setIncomeOpen(false)} />
+      <AddTransactionSheet
+        open={editTxOpen}
+        onClose={() => {
+          setEditTxOpen(false)
+          setEditingTx(null)
+        }}
+        transaction={editingTx}
+      />
+      <AddBudgetSheet
+        open={budgetOpen}
+        onClose={() => {
+          setBudgetOpen(false)
+          setEditingBudgetId(null)
+        }}
+        budget={editingBudget}
+      />
     </div>
   )
 }
@@ -163,22 +262,26 @@ function SectionTitle({
   title,
   onAdd,
   addLabel,
+  hideAdd,
 }: {
   title: string
   onAdd: () => void
   addLabel: string
+  hideAdd?: boolean
 }) {
   return (
     <div className="mb-3 flex items-center justify-between">
       <h2 className="font-serif text-xl text-foreground">{title}</h2>
-      <button
-        onClick={onAdd}
-        aria-label={addLabel}
-        className="flex items-center gap-1 rounded-full bg-secondary px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-accent"
-      >
-        <Plus className="size-4" />
-        Add
-      </button>
+      {!hideAdd && (
+        <button
+          onClick={onAdd}
+          aria-label={addLabel}
+          className="flex items-center gap-1 rounded-full bg-secondary px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-accent"
+        >
+          <Plus className="size-4" />
+          Add
+        </button>
+      )}
     </div>
   )
 }

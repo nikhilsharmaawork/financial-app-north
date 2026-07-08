@@ -1,12 +1,14 @@
 'use client'
 
-import { ArrowLeft, Bell, Globe, LogOut, RotateCcw, User } from 'lucide-react'
+import { ArrowLeft, Bell, Globe, LogOut, Moon, RotateCcw, Sun, User } from 'lucide-react'
 import { Field, SelectInput } from '@/components/ui/field'
 import { useStore } from '@/lib/store'
+import { useTheme } from '@/lib/theme-context'
 import type { Country, Currency, Status } from '@/lib/types'
 
 export function SettingsScreen({ onBack, onSignOut }: { onBack: () => void; onSignOut: () => void }) {
   const { state, updateProfile, resetApp } = useStore()
+  const { theme, toggleTheme } = useTheme()
   const { profile } = state
 
   return (
@@ -85,6 +87,12 @@ export function SettingsScreen({ onBack, onSignOut }: { onBack: () => void; onSi
           Preferences
         </h2>
         <div className="flex flex-col divide-y divide-border rounded-2xl border border-border bg-card">
+          <ToggleRow
+            icon={theme === 'dark' ? <Moon className="size-5" /> : <Sun className="size-5" />}
+            label="Dark mode"
+            checked={theme === 'dark'}
+            onChange={toggleTheme}
+          />
           <ToggleRow icon={<Bell className="size-5" />} label="Bill reminders" defaultOn />
           <ToggleRow icon={<Globe className="size-5" />} label="Localized deadlines" defaultOn />
         </div>
@@ -126,16 +134,27 @@ function ToggleRow({
   icon,
   label,
   defaultOn,
+  checked,
+  onChange,
 }: {
   icon: React.ReactNode
   label: string
   defaultOn?: boolean
+  checked?: boolean
+  onChange?: () => void
 }) {
+  const isControlled = checked !== undefined
   return (
     <label className="flex cursor-pointer items-center gap-3 p-4">
       <span className="text-muted-foreground">{icon}</span>
       <span className="flex-1 font-medium text-foreground">{label}</span>
-      <input type="checkbox" defaultChecked={defaultOn} className="peer sr-only" />
+      <input
+        type="checkbox"
+        checked={isControlled ? checked : undefined}
+        defaultChecked={isControlled ? undefined : defaultOn}
+        onChange={onChange}
+        className="peer sr-only"
+      />
       <span className="relative h-6 w-11 rounded-full bg-secondary transition-colors peer-checked:bg-primary">
         <span className="absolute left-0.5 top-0.5 size-5 rounded-full bg-foreground transition-transform peer-checked:translate-x-5 peer-checked:bg-primary-foreground" />
       </span>

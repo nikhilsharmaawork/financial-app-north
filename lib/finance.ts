@@ -138,3 +138,42 @@ export function monthKey(iso: string): string {
 export function uid(): string {
   return Math.random().toString(36).slice(2, 10)
 }
+
+function isSameMonth(iso: string, ref: Date): boolean {
+  const d = new Date(iso)
+  return d.getFullYear() === ref.getFullYear() && d.getMonth() === ref.getMonth()
+}
+
+/** Total spent (expenses only, positive number) per category this month. */
+export function spentByCategoryThisMonth(state: AppState): Record<string, number> {
+  const now = new Date()
+  const result: Record<string, number> = {}
+  for (const t of state.transactions) {
+    if (t.amount >= 0) continue
+    if (!isSameMonth(t.date, now)) continue
+    result[t.category] = (result[t.category] ?? 0) + Math.abs(t.amount)
+  }
+  return result
+}
+
+/** Last N months of net spend (expenses only, positive number), oldest first. */
+export function monthlySpendHistory(state: AppState, months = 6): { label: string; total: number }[] {
+  const now = new Date()
+  const buckets: { label: string; year: number; month: number; total: number }[] = []
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    buckets.push({
+      label: d.toLocaleDateString('en-US', { month: 'short' }),
+      year: d.getFullYear(),
+      month: d.getMonth(),
+      total: 0,
+    })
+  }
+  for (const t of state.transactions) {
+    if (t.amount >= 0) continue
+    const d = new Date(t.date)
+    const bucket = buckets.find((b) => b.year === d.getFullYear() && b.month === d.getMonth())
+    if (bucket) bucket.total += Math.abs(t.amount)
+  }
+  return buckets.map((b) => ({ label: b.label, total: b.total }))
+}

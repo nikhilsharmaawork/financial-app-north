@@ -199,6 +199,29 @@ export type Database = {
           created_at?: string
         }
       }
+      budgets: {
+        Row: {
+          id: string
+          user_id: string
+          category: string
+          monthly_limit: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          category: string
+          monthly_limit: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          category?: string
+          monthly_limit?: number
+          created_at?: string
+        }
+      }
       notifications: {
         Row: {
           id: string

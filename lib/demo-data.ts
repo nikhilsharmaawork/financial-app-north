@@ -184,4 +184,8 @@ export const demoState: AppState = {
       color: '#c084d9',
     },
   ],
+  budgets: [
+    { id: 'b1', category: 'Food', monthlyLimit: 250 },
+    { id: 'b2', category: 'Transport', monthlyLimit: 60 },
+  ],
 }
